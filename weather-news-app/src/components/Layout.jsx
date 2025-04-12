@@ -60,17 +60,17 @@ export const Layout = () => {
         };
         const getNews = async () => {
             try {
-              const response = await axios.get(
-                'https://api.nytimes.com/svc/topstories/v2/home.json?api-key=${newsKey}'
-              );
-              setNews(response.data.results.slice(0, 5));
+                const response = await axios.get(
+                    'https://api.nytimes.com/svc/topstories/v2/home.json?api-key=${newsKey}'
+                );
+                setNews(response.data.results.slice(0, 5));
             } catch (error) {
-              console.error('Error fetching news:', error);
+                console.error('Error fetching news:', error);
             }
-          };
+        };
 
-          getWeather();
-          getNews();
-        }, [coords]);
+        getWeather();
+        getNews();
+    }, [coords]);
 }
 
