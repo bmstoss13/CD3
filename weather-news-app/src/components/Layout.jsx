@@ -33,8 +33,8 @@ export const Layout = () => {
 
             const [data] = response.data;
             if (data) {
-                const {lat, lon} = data;
-                setCoords({lat, lon});
+                const { lat, lon } = data;
+                setCoords({ lat, lon });
             }
         } catch (error) {
             console.error('Error fetching geolocation:', error);
@@ -43,25 +43,8 @@ export const Layout = () => {
         }
     };
 
+    // Separate useEffect for fetching news - runs on component mount
     useEffect(() => {
-        const getWeather = async () => {
-            if(!coords) return;
-        
-            try {
-                const response = await axios.get('https://api.openweathermap.org/data/3.0/onecall', {
-                    params: {
-                        lat: coords.lat,
-                        lon: coords.lon,
-                        exclude: 'alerts',
-                        units: 'metric',
-                        appid: weatherKey,
-                    },
-                });
-                setWeather(response.data);
-            } catch (error) {
-                console.error('Error fetching weather', error);
-            }
-        };
         const getNews = async () => {
             try {
                 const response = await axios.get(
@@ -73,13 +56,62 @@ export const Layout = () => {
             }
         };
 
-        getWeather();
         getNews();
+    }, []); // Empty dependency array means this runs once on mount
+
+    // Weather-specific useEffect that depends on coords
+    useEffect(() => {
+        if (!coords) return;
+
+        const fetchWeatherData = async () => {
+            try {
+                const { lat, lon } = coords;
+
+                const currentRes = await axios.get('https://api.openweathermap.org/data/2.5/weather', {
+                    params: {
+                        lat,
+                        lon,
+                        units: 'imperial',
+                        appid: weatherKey,
+                    },
+                });
+
+                const hourlyRes = await axios.get('https://pro.openweathermap.org/data/2.5/forecast/hourly', {
+                    params: {
+                        lat,
+                        lon,
+                        units: 'imperial',
+                        cnt: 24,
+                        appid: weatherKey,
+                    },
+                });
+
+                const dailyRes = await axios.get('https://api.openweathermap.org/data/2.5/forecast/daily', {
+                    params: {
+                        lat,
+                        lon,
+                        cnt: 7,
+                        units: 'imperial',
+                        appid: weatherKey,
+                    },
+                });
+
+                setWeather({
+                    current: currentRes.data,
+                    hourly: hourlyRes.data.list,
+                    daily: dailyRes.data.list,
+                });
+            } catch (error) {
+                console.error('Error fetching weather:', error);
+            }
+        };
+
+        fetchWeatherData();
     }, [coords]);
 
-    return(
-        <div style={{ padding: '2rem'}}>
-            <Typography variant='h2' gutterBottom>
+    return (
+        <div style={{ padding: '2rem' }}>
+            <Typography variant="h2" gutterBottom>
                 The Daily Climate
             </Typography>
 
@@ -112,7 +144,7 @@ export const Layout = () => {
                 <div style={{ marginTop: '2rem' }}>
                     <Typography variant="h5">Current Weather</Typography>
                     <Typography>
-                        Temp: {weather.current.temp}°C - {weather.current.weather[0].description}
+                        Temp: {weather.current.main.temp}°F - {weather.current.weather[0].description}
                     </Typography>
                     <img
                         src={`http://openweathermap.org/img/wn/${weather.current.weather[0].icon}@2x.png`}
@@ -120,22 +152,25 @@ export const Layout = () => {
                     />
 
                     <Typography variant="h6" sx={{ mt: 2 }}>
-                        Hourly Forecast (next 24 hrs)
+                        Hourly Forecast (Next 24 Hours)
                     </Typography>
                     <Grid container spacing={2} sx={{ overflowX: 'auto', flexWrap: 'nowrap' }}>
-                        {weather.hourly.slice(0, 24).map((hour, idx) => (
+                        {weather.hourly.slice(0, 8).map((item, idx) => (
                             <Grid item key={idx}>
                                 <Card>
                                     <CardContent>
                                         <Typography variant="body2">
-                                            {new Date(hour.dt * 1000).getHours()}:00
+                                            {new Date(item.dt * 1000).toLocaleTimeString([], {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                            })}
                                         </Typography>
                                         <img
-                                            src={`http://openweathermap.org/img/wn/${hour.weather[0].icon}@2x.png`}
+                                            src={`http://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png`}
                                             alt="icon"
                                             width="50"
                                         />
-                                        <Typography>{hour.temp}°C</Typography>
+                                        <Typography>{item.main.temp}°F</Typography>
                                     </CardContent>
                                 </Card>
                             </Grid>
@@ -146,20 +181,21 @@ export const Layout = () => {
                         7-Day Forecast
                     </Typography>
                     <Grid container spacing={2}>
-                        {weather.daily.slice(0, 7).map((day, idx) => (
+                        {weather.daily.map((item, idx) => (
                             <Grid item xs={12} sm={6} md={3} key={idx}>
                                 <Card>
                                     <CardContent>
                                         <Typography variant="body2">
-                                            {new Date(day.dt * 1000).toLocaleDateString()}
+                                            {new Date(item.dt * 1000).toLocaleDateString()}
                                         </Typography>
                                         <img
-                                            src={`http://openweathermap.org/img/wn/${day.weather[0].icon}@2x.png`}
+                                            src={`http://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png`}
                                             alt="icon"
                                             width="50"
                                         />
-                                        <Typography>Day: {day.temp.day}°C</Typography>
-                                        <Typography>Night: {day.temp.night}°C</Typography>
+                                        <Typography>Day: {item.temp.day}°F</Typography>
+                                        <Typography>Min: {item.temp.min}°F</Typography>
+                                        <Typography>Max: {item.temp.max}°F</Typography>
                                     </CardContent>
                                 </Card>
                             </Grid>
@@ -204,4 +240,3 @@ export const Layout = () => {
         </div>
     );
 };
-
