@@ -8,6 +8,8 @@ import {
     Typography,
     Grid,
     CircularProgress,
+    Box,
+    rgbToHex, // Add Box component
 } from '@mui/material';
 
 const weatherKey = import.meta.env.VITE_WEATHER_API_KEY;
@@ -19,6 +21,26 @@ export const Layout = () => {
     const [weather, setWeather] = useState(null);
     const [news, setNews] = useState([]);
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        setLoading(true);
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    setCoords({ lat: latitude, lon: longitude });
+                    setLoading(false);
+                },
+                (error) => {
+                    console.error('Error getting current location:', error);
+                    setLoading(false);
+                }
+            );
+        } else {
+            console.error('Geolocation is not supported by this browser.');
+            setLoading(false);
+        }
+    }, []);
 
     const handleLocationSearch = async () => {
         setLoading(true);
@@ -43,7 +65,6 @@ export const Layout = () => {
         }
     };
 
-    // Separate useEffect for fetching news - runs on component mount
     useEffect(() => {
         const getNews = async () => {
             try {
@@ -57,16 +78,14 @@ export const Layout = () => {
         };
 
         getNews();
-    }, []); // Empty dependency array means this runs once on mount
+    }, []);
 
-    // Weather-specific useEffect that depends on coords
     useEffect(() => {
         if (!coords) return;
 
         const fetchWeatherData = async () => {
             try {
                 const { lat, lon } = coords;
-
                 const currentRes = await axios.get('https://api.openweathermap.org/data/2.5/weather', {
                     params: {
                         lat,
@@ -105,17 +124,16 @@ export const Layout = () => {
                 console.error('Error fetching weather:', error);
             }
         };
-
         fetchWeatherData();
     }, [coords]);
 
     return (
-        <div style={{ padding: '2rem' }}>
-            <Typography variant="h2" gutterBottom>
+        <Box sx={{ p: 4, maxWidth: 1200, mx: 'auto' }}>
+            <Typography variant="h2" gutterBottom align="center">
                 The Daily Climate
             </Typography>
 
-            <Grid container spacing={2} alignItems="center">
+            <Grid container spacing={2} alignItems="center" justifyContent="center">
                 <Grid item xs={12} sm={6}>
                     <TextField
                         fullWidth
@@ -126,66 +144,83 @@ export const Layout = () => {
                     />
                 </Grid>
                 <Grid item xs={12} sm={3}>
-                    <Button fullWidth variant="contained" onClick={handleLocationSearch}>
+                    <Button fullWidth variant="contained" onClick={handleLocationSearch} sx={{ height: '56px' }}>
                         Get Weather
                     </Button>
                 </Grid>
             </Grid>
 
-            {loading && <CircularProgress sx={{ mt: 2 }} />}
+            {loading && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                    <CircularProgress />
+                </Box>
+            )}
 
-            {coords && (
-                <Typography variant="body1" sx={{ mt: 2 }}>
-                    Latitude: {coords.lat}, Longitude: {coords.lon}
-                </Typography>
+            {!loading && !weather && (
+                <Box sx={{ mt: 4, p: 4, textAlign: 'center' }}>
+                    <Typography variant="h6" color="text.secondary">
+                        Enter a location or enable geolocation to see the weather. 🌤️
+                    </Typography>
+                </Box>
             )}
 
             {weather && (
-                <div style={{ marginTop: '2rem' }}>
-                    <Typography variant="h5">Current Weather</Typography>
-                    <Typography>
-                        Temp: {weather.current.main.temp}°F - {weather.current.weather[0].description}
-                    </Typography>
-                    <img
-                        src={`http://openweathermap.org/img/wn/${weather.current.weather[0].icon}@2x.png`}
-                        alt="weather-icon"
-                    />
+                <Box sx={{ mt: 4 }}>
+                    {/* Current Weather Section */}
+                    <Card sx={{ p: 3, mb: 4, textAlign: 'center' }}>
+                        <Typography variant="h4" component="h3" gutterBottom>
+                            Current Weather
+                        </Typography>
+                        <Typography variant="h2" component="div">
+                            {weather.current.main.temp}°F
+                        </Typography>
+                        <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+                            {weather.current.weather[0].description}
+                        </Typography>
+                        <img
+                            src={`http://openweathermap.org/img/wn/${weather.current.weather[0].icon}@4x.png`}
+                            alt="weather-icon"
+                            style={{ width: 120, height: 120 }}
+                        />
+                    </Card>
 
-                    <Typography variant="h6" sx={{ mt: 2 }}>
-                        Hourly Forecast (Next 24 Hours)
+                    {/* Hourly Forecast */}
+                    <Typography variant="h5" gutterBottom>
+                        Hourly Forecast
                     </Typography>
-                    <Grid container spacing={2} sx={{ overflowX: 'auto', flexWrap: 'nowrap' }}>
+                    <Grid container spacing={2} sx={{ overflowX: 'auto', flexWrap: 'nowrap', justifyContent: 'center', height: 150 }}>
                         {weather.hourly.slice(0, 8).map((item, idx) => (
                             <Grid item key={idx}>
-                                <Card>
-                                    <CardContent>
-                                        <Typography variant="body2">
+                                <Card sx={{ minWidth: 100 }}>
+                                    <CardContent sx={{ textAlign: 'center' }}>
+                                        <Typography variant="body2" color="text.secondary">
                                             {new Date(item.dt * 1000).toLocaleTimeString([], {
                                                 hour: '2-digit',
                                                 minute: '2-digit',
                                             })}
                                         </Typography>
                                         <img
-                                            src={`http://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png`}
+                                            src={`http://openweathermap.org/img/wn/${item.weather[0].icon}.png`}
                                             alt="icon"
                                             width="50"
                                         />
-                                        <Typography>{item.main.temp}°F</Typography>
+                                        <Typography>{Math.round(item.main.temp)}°F</Typography>
                                     </CardContent>
                                 </Card>
                             </Grid>
                         ))}
                     </Grid>
 
-                    <Typography variant="h6" sx={{ mt: 2 }}>
+                    {/* 7-Day Forecast */}
+                    <Typography variant="h5" sx={{ mt: 4, mb: 2, justifyContent: 'center' }}>
                         7-Day Forecast
                     </Typography>
-                    <Grid container spacing={2}>
+                    <Grid container spacing={2} sx={{ justifyContent: 'center'}}>
                         {weather.daily.map((item, idx) => (
                             <Grid item xs={12} sm={6} md={3} key={idx}>
                                 <Card>
-                                    <CardContent>
-                                        <Typography variant="body2">
+                                    <CardContent sx={{ textAlign: 'center' }}>
+                                        <Typography variant="subtitle1" gutterBottom>
                                             {new Date(item.dt * 1000).toLocaleDateString()}
                                         </Typography>
                                         <img
@@ -193,40 +228,41 @@ export const Layout = () => {
                                             alt="icon"
                                             width="50"
                                         />
-                                        <Typography>Day: {item.temp.day}°F</Typography>
-                                        <Typography>Min: {item.temp.min}°F</Typography>
-                                        <Typography>Max: {item.temp.max}°F</Typography>
+                                        <Typography>High: {Math.round(item.temp.max)}°F</Typography>
+                                        <Typography>Low: {Math.round(item.temp.min)}°F</Typography>
                                     </CardContent>
                                 </Card>
                             </Grid>
                         ))}
                     </Grid>
-                </div>
+                </Box>
             )}
 
             {news.length > 0 && (
-                <div style={{ marginTop: '3rem' }}>
-                    <Typography variant="h5">Top News Stories</Typography>
-                    <Grid container spacing={2}>
+                <Box sx={{ mt: 6 }}>
+                    <Typography variant="h5" gutterBottom>
+                        Top News Stories
+                    </Typography>
+                    <Grid container spacing={4}>
                         {news.map((article, idx) => (
                             <Grid item xs={12} md={6} key={idx}>
                                 <Card>
                                     <CardContent>
-                                        <Typography variant="h6">{article.title}</Typography>
-                                        <Typography variant="subtitle2">{article.byline}</Typography>
-                                        <Typography variant="body2">{article.abstract}</Typography>
+                                        <Typography variant="h6" gutterBottom>{article.title}</Typography>
+                                        <Typography variant="subtitle2" color="text.secondary">{article.byline}</Typography>
+                                        <Typography variant="body2" sx={{ my: 2 }}>{article.abstract}</Typography>
                                         {article.multimedia && article.multimedia[0] && (
                                             <img
                                                 src={article.multimedia[0].url}
                                                 alt={article.title}
-                                                style={{ width: '100%', marginTop: '1rem' }}
+                                                style={{ width: '100%', display: 'block' }}
                                             />
                                         )}
                                         <Button
                                             variant="outlined"
                                             href={article.url}
                                             target="_blank"
-                                            sx={{ mt: 1 }}
+                                            sx={{ mt: 2 }}
                                         >
                                             Read more
                                         </Button>
@@ -235,8 +271,8 @@ export const Layout = () => {
                             </Grid>
                         ))}
                     </Grid>
-                </div>
+                </Box>
             )}
-        </div>
+        </Box>
     );
 };
