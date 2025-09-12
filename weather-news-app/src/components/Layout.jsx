@@ -9,7 +9,6 @@ import {
     Grid,
     CircularProgress,
     Box,
-    rgbToHex, // Add Box component
 } from '@mui/material';
 
 const weatherKey = import.meta.env.VITE_WEATHER_API_KEY;
